@@ -442,7 +442,8 @@
   </footer>
 
   <script type="module">
-    import imglyRemoveBackground from 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm';
+    import * as bgModule from 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm';
+    const imglyRemoveBackground = bgModule.default || bgModule.removeBackground || bgModule;
 
     const fileInput = document.getElementById('fileInput');
     const uploadBox = document.getElementById('uploadBox');

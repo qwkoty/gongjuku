@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Remove Background</title>
+  <style>
+    body { background: #0A0E1A; color: #F1F5F9; font-family: sans-serif; padding: 20px; }
+    #log { white-space: pre-wrap; font-family: monospace; font-size: 14px; line-height: 1.6; }
+    .ok { color: #10B981; }
+    .err { color: #EF4444; }
+    .info { color: #60A5FA; }
+    img { max-width: 300px; border: 1px solid #334155; margin: 10px 0; }
+    canvas { border: 1px solid #334155; margin: 10px 0; max-width: 300px; }
+  </style>
+</head>
+<body>
+  <h2>抠图功能测试</h2>
+  <div id="log">开始测试...</div>
+  <div id="images"></div>
+
+  <script type="module">
+    import * as bgModule from 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm';
+    const imglyRemoveBackground = bgModule.default || bgModule.removeBackground || bgModule;
+
+    const log = document.getElementById('log');
+    const imagesDiv = document.getElementById('images');
+
+    function addLog(msg, type = 'info') {
+      const span = document.createElement('span');
+      span.className = type;
+      span.textContent = msg + '\n';
+      log.appendChild(span);
+    }
+
+    async function test() {
+      try {
+        addLog('1. 加载测试图片...', 'info');
+        const imgPath = 'test-image.jpg';
+
+        // 读取图片文件
+        const response = await fetch(imgPath);
+        if (!response.ok) throw new Error('无法读取图片: ' + response.status);
+        const blob = await response.blob();
+        addLog('   图片大小: ' + (blob.size / 1024).toFixed(1) + ' KB', 'ok');
+
+        // 显示原图
+        const originalUrl = URL.createObjectURL(blob);
+        const originalImg = document.createElement('img');
+        originalImg.src = originalUrl;
+        imagesDiv.innerHTML = '<p>原图:</p>';
+        imagesDiv.appendChild(originalImg);
+
+        addLog('2. 调用 AI 抠图...', 'info');
+        const startTime = Date.now();
+
+        const resultBlob = await imglyRemoveBackground(blob, {
+          model: 'medium',
+          output: { format: 'image/png', quality: 0.9 },
+          progress: (key, current, total) => {
+            addLog('   进度: ' + Math.round((current/total)*100) + '%', 'info');
+          }
+        });
+
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        addLog('   处理完成! 耗时: ' + elapsed + '秒', 'ok');
+        addLog('   结果大小: ' + (resultBlob.size / 1024).toFixed(1) + ' KB', 'ok');
+
+        // 显示结果
+        const resultUrl = URL.createObjectURL(resultBlob);
+        const resultImg = document.createElement('img');
+        resultImg.src = resultUrl;
+        imagesDiv.innerHTML += '<p>抠图结果:</p>';
+        imagesDiv.appendChild(resultImg);
+
+        addLog('3. 测试成功! 功能正常', 'ok');
+
+      } catch (err) {
+        addLog('错误: ' + err.message, 'err');
+        console.error(err);
+      }
+    }
+
+    test();
+  </script>
+</body>
+</html>
