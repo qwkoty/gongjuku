@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片处理 - 工具箱</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <!-- 导航栏 -->
+  <nav class="nav">
+    <a href="../../index.html" class="nav-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="2" width="20" height="20" rx="5"/>
+        <path d="M8 12l3 3 5-5"/>
+      </svg>
+      工具箱
+    </a>
+    <div class="nav-links">
+      <a href="../../index.html" class="nav-link">首页</a>
+      <a href="./index.html" class="nav-link active">图片</a>
+    </div>
+  </nav>
+
+  <!-- 主内容 -->
+  <div class="container">
+    <div class="page-header">
+      <h1>AI 智能抠图</h1>
+      <p>上传图片，一键移除背景。所有处理在浏览器本地完成，图片不会上传到服务器。</p>
+    </div>
+
+    <!-- 上传区域 -->
+    <div id="uploadArea" class="upload-area">
+      <input type="file" id="fileInput" accept="image/*" hidden>
+      <div class="upload-box" id="uploadBox">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p class="upload-text">点击或拖拽图片到此处</p>
+        <p class="upload-hint">支持 JPG、PNG、WebP，最大 10MB</p>
+      </div>
+    </div>
+
+    <!-- 进度提示 -->
+    <div id="progressArea" class="progress-area hidden">
+      <div class="progress-card card">
+        <div class="progress-spinner"></div>
+        <p id="progressText">正在加载 AI 模型...</p>
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+        <p id="progressDetail" class="progress-detail">首次加载约需 20-30 秒，请耐心等待</p>
+      </div>
+    </div>
+
+    <!-- 工作区 -->
+    <div id="workspace" class="workspace hidden">
+      <!-- 编辑工具栏 -->
+      <div class="toolbar card">
+        <div class="tool-group">
+          <button id="brushBtn" class="tool-btn active" title="画笔 (恢复前景)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+            </svg>
+            <span>画笔</span>
+          </button>
+          <button id="eraserBtn" class="tool-btn" title="橡皮 (擦除背景)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/>
+              <path d="M17 17L7 7"/>
+            </svg>
+            <span>橡皮</span>
+          </button>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="tool-group">
+          <label class="tool-label">大小</label>
+          <input type="range" id="brushSize" min="1" max="50" value="20" class="tool-slider">
+          <span id="brushSizeValue" class="tool-value">20px</span>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="tool-group">
+          <label class="tool-label">羽化</label>
+          <input type="range" id="brushSoft" min="0" max="100" value="30" class="tool-slider">
+          <span id="brushSoftValue" class="tool-value">30%</span>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="tool-group">
+          <button id="undoBtn" class="tool-btn" title="撤销 (Ctrl+Z)" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 7v6h6"/>
+              <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+            </svg>
+            <span>撤销</span>
+          </button>
+          <button id="toggleMaskBtn" class="tool-btn" title="显示/隐藏遮罩">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <span>遮罩</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 画布区域 -->
+      <div class="canvas-area">
+        <div class="canvas-panel card">
+          <div class="canvas-header">
+            <span class="canvas-label">原图</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="sourceCanvas"></canvas>
+          </div>
+        </div>
+        <div class="canvas-panel card">
+          <div class="canvas-header">
+            <span class="canvas-label">结果</span>
+            <span id="maskIndicator" class="mask-indicator hidden">遮罩模式</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="resultCanvas"></canvas>
+            <canvas id="maskCanvas" class="hidden"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="action-bar">
+        <button id="reuploadBtn" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          重新上传
+        </button>
+        <button id="downloadBtn" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          下载 PNG
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <p>工具箱 - 实用的在线工具集合</p>
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>
