@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 智能抠图 - 工具箱</title>
+  <style>
+    :root {
+      --bg: #0A0E1A;
+      --surface: #111827;
+      --surface-hover: #1A2236;
+      --primary: #3B82F6;
+      --primary-hover: #2563EB;
+      --primary-glow: rgba(59,130,246,0.3);
+      --text: #F1F5F9;
+      --text-secondary: #94A3B8;
+      --border: #1E293B;
+      --border-hover: #334155;
+      --success: #10B981;
+      --error: #EF4444;
+      --radius: 16px;
+      --radius-sm: 12px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    .nav {
+      background: rgba(17,24,39,0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .nav-brand svg { width: 28px; height: 28px; color: var(--primary); }
+    .container { max-width: 1280px; margin: 0 auto; padding: 48px 24px; }
+    .page-header { text-align: center; margin-bottom: 48px; }
+    .page-header h1 {
+      font-size: 42px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #60A5FA, #3B82F6, #818CF8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .page-header p { color: var(--text-secondary); font-size: 17px; max-width: 520px; margin: 0 auto; }
+
+    .upload-box {
+      border: 2px dashed var(--border-hover);
+      border-radius: var(--radius);
+      padding: 80px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+    }
+    .upload-box::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, var(--primary-glow) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .upload-box:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 60px var(--primary-glow);
+    }
+    .upload-box:hover::before { opacity: 1; }
+    .upload-box.dragover {
+      border-color: var(--primary);
+      background: var(--surface-hover);
+    }
+    .upload-box > * { position: relative; z-index: 1; }
+    .upload-icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, var(--primary), #6366F1);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 32px var(--primary-glow);
+    }
+    .upload-icon svg { color: white; }
+    .upload-text { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .upload-hint { font-size: 14px; color: var(--text-secondary); }
+
+    .progress-area { margin-bottom: 24px; }
+    .progress-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 56px 40px;
+      text-align: center;
+    }
+    .progress-spinner {
+      width: 56px; height: 56px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 24px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-card h3 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .progress-card p { color: var(--text-secondary); font-size: 15px; margin-bottom: 24px; }
+    .progress-bar {
+      width: 100%; max-width: 440px; height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), #60A5FA);
+      border-radius: 4px;
+      transition: width 0.4s ease;
+      width: 0%;
+      box-shadow: 0 0 12px var(--primary-glow);
+    }
+
+    .workspace { animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .toolbar {
+      display: flex; align-items: center; gap: 16px;
+      padding: 14px 24px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .tool-group { display: flex; align-items: center; gap: 8px; }
+    .tool-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-secondary);
+      font-size: 14px; font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tool-btn:hover { border-color: var(--border-hover); color: var(--text); }
+    .tool-btn.active {
+      background: linear-gradient(135deg, var(--primary), #4F46E5);
+      border-color: transparent;
+      color: white;
+      box-shadow: 0 4px 16px var(--primary-glow);
+    }
+    .tool-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .tool-divider { width: 1px; height: 32px; background: var(--border); }
+    .tool-label { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+    .tool-slider {
+      width: 110px; height: 6px;
+      -webkit-appearance: none; appearance: none;
+      background: var(--border);
+      border-radius: 3px; outline: none;
+    }
+    .tool-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      background: linear-gradient(135deg, var(--primary), #60A5FA);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--primary-glow);
+    }
+    .tool-value { font-size: 13px; color: var(--text-secondary); min-width: 44px; text-align: right; font-weight: 600; }
+
+    .canvas-area { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    .canvas-panel {
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .canvas-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(17,24,39,0.5);
+    }
+    .canvas-label { font-size: 14px; font-weight: 700; color: var(--text); }
+    .mask-indicator {
+      font-size: 12px; color: var(--primary);
+      background: rgba(59,130,246,0.15);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      border: 1px solid rgba(59,130,246,0.2);
+    }
+    .canvas-wrap {
+      position: relative; padding: 20px;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 420px;
+      background:
+        linear-gradient(45deg, #0f172a 25%, transparent 25%),
+        linear-gradient(-45deg, #0f172a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #0f172a 75%),
+        linear-gradient(-45deg, transparent 75%, #0f172a 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+    .canvas-wrap canvas {
+      max-width: 100%; max-height: 520px;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      cursor: crosshair;
+    }
+
+    .action-bar { display: flex; justify-content: center; gap: 16px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 28px;
+      border-radius: 12px;
+      font-size: 15px; font-weight: 700;
+      cursor: pointer; border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #4F46E5);
+      color: white;
+      box-shadow: 0 4px 20px var(--primary-glow);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px var(--primary-glow); }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border-hover);
+    }
+    .btn-secondary:hover { background: var(--surface-hover); border-color: var(--text-secondary); }
+
+    .footer {
+      text-align: center; padding: 48px 24px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      border-top: 1px solid var(--border);
+      margin-top: 80px;
+    }
+    .hidden { display: none !important; }
+
+    .error-card {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: var(--radius-sm);
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .error-card svg { color: var(--error); margin-bottom: 12px; }
+    .error-card h3 { color: var(--error); font-size: 18px; margin-bottom: 8px; }
+    .error-card p { color: var(--text-secondary); font-size: 14px; }
+
+    @media (max-width: 768px) {
+      .canvas-area { grid-template-columns: 1fr; }
+      .toolbar { gap: 10px; padding: 12px 14px; }
+      .tool-divider { display: none; }
+      .tool-slider { width: 80px; }
+      .canvas-wrap { min-height: 280px; }
+      .page-header h1 { font-size: 28px; }
+      .container { padding: 24px 16px; }
+      .nav { padding: 0 16px; }
+      .upload-box { padding: 48px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="#" class="nav-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="2" width="20" height="20" rx="5"/>
+        <path d="M8 12l3 3 5-5"/>
+      </svg>
+      工具箱
+    </a>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>AI 智能抠图</h1>
+      <p>上传图片，一键移除背景。所有处理在浏览器本地完成，图片不会上传到服务器。</p>
+    </div>
+
+    <div id="uploadArea">
+      <input type="file" id="fileInput" accept="image/*" hidden>
+      <div class="upload-box" id="uploadBox">
+        <div class="upload-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <p class="upload-text">点击或拖拽图片到此处</p>
+        <p class="upload-hint">支持 JPG、PNG、WebP，最大 10MB</p>
+      </div>
+    </div>
+
+    <div id="progressArea" class="progress-area hidden">
+      <div class="progress-card">
+        <div class="progress-spinner"></div>
+        <h3 id="progressTitle">正在加载 AI 模型...</h3>
+        <p id="progressText">首次使用需要下载模型文件，请耐心等待</p>
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="errorArea" class="error-card hidden">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <h3>处理失败</h3>
+      <p id="errorText">请检查网络连接后重试，或尝试刷新页面</p>
+      <button id="retryBtn" class="btn btn-primary" style="margin-top:16px">重试</button>
+    </div>
+
+    <div id="workspace" class="workspace hidden">
+      <div class="toolbar">
+        <div class="tool-group">
+          <button id="brushBtn" class="tool-btn active" title="画笔 (恢复前景)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+            </svg>
+            <span>画笔</span>
+          </button>
+          <button id="eraserBtn" class="tool-btn" title="橡皮 (擦除背景)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/>
+              <path d="M17 17L7 7"/>
+            </svg>
+            <span>橡皮</span>
+          </button>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="tool-group">
+          <label class="tool-label">大小</label>
+          <input type="range" id="brushSize" min="1" max="50" value="20" class="tool-slider">
+          <span id="brushSizeValue" class="tool-value">20px</span>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="tool-group">
+          <label class="tool-label">羽化</label>
+          <input type="range" id="brushSoft" min="0" max="100" value="30" class="tool-slider">
+          <span id="brushSoftValue" class="tool-value">30%</span>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="tool-group">
+          <button id="undoBtn" class="tool-btn" title="撤销 (Ctrl+Z)" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 7v6h6"/>
+              <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+            </svg>
+            <span>撤销</span>
+          </button>
+          <button id="toggleMaskBtn" class="tool-btn" title="显示/隐藏遮罩">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <span>遮罩</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="canvas-area">
+        <div class="canvas-panel">
+          <div class="canvas-header">
+            <span class="canvas-label">原图</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="sourceCanvas"></canvas>
+          </div>
+        </div>
+        <div class="canvas-panel">
+          <div class="canvas-header">
+            <span class="canvas-label">结果</span>
+            <span id="maskIndicator" class="mask-indicator hidden">遮罩模式</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="resultCanvas"></canvas>
+            <canvas id="maskCanvas" class="hidden"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button id="reuploadBtn" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          重新上传
+        </button>
+        <button id="downloadBtn" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          下载 PNG
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>工具箱 - 实用的在线工具集合</p>
+  </footer>
+
+  <script type="module">
+    import imglyRemoveBackground from 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm';
+
+    const fileInput = document.getElementById('fileInput');
+    const uploadBox = document.getElementById('uploadBox');
+    const uploadArea = document.getElementById('uploadArea');
+    const progressArea = document.getElementById('progressArea');
+    const progressTitle = document.getElementById('progressTitle');
+    const progressText = document.getElementById('progressText');
+    const progressFill = document.getElementById('progressFill');
+    const errorArea = document.getElementById('errorArea');
+    const errorText = document.getElementById('errorText');
+    const retryBtn = document.getElementById('retryBtn');
+    const workspace = document.getElementById('workspace');
+    const sourceCanvas = document.getElementById('sourceCanvas');
+    const resultCanvas = document.getElementById('resultCanvas');
+    const maskCanvas = document.getElementById('maskCanvas');
+    const brushBtn = document.getElementById('brushBtn');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const brushSize = document.getElementById('brushSize');
+    const brushSizeValue = document.getElementById('brushSizeValue');
+    const brushSoft = document.getElementById('brushSoft');
+    const brushSoftValue = document.getElementById('brushSoftValue');
+    const undoBtn = document.getElementById('undoBtn');
+    const toggleMaskBtn = document.getElementById('toggleMaskBtn');
+    const maskIndicator = document.getElementById('maskIndicator');
+    const reuploadBtn = document.getElementById('reuploadBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    const sourceCtx = sourceCanvas.getContext('2d');
+    const resultCtx = resultCanvas.getContext('2d');
+    const maskCtx = maskCanvas.getContext('2d');
+
+    let originalImage = null;
+    let originalImageData = null;
+    let isDrawing = false;
+    let currentTool = 'brush';
+    let undoStack = [];
+    let showMask = false;
+    let lastX = 0, lastY = 0;
+    let currentFile = null;
+
+    const MAX_UNDO = 20;
+
+    uploadBox.addEventListener('click', () => fileInput.click());
+    uploadBox.addEventListener('dragover', (e) => { e.preventDefault(); uploadBox.classList.add('dragover'); });
+    uploadBox.addEventListener('dragleave', () => uploadBox.classList.remove('dragover'));
+    uploadBox.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadBox.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleFile(file);
+    });
+    retryBtn.addEventListener('click', () => {
+      errorArea.classList.add('hidden');
+      if (currentFile) startProcessing(currentFile);
+    });
+
+    function handleFile(file) {
+      if (!file.type.startsWith('image/')) { alert('请选择图片文件'); return; }
+      if (file.size > 10 * 1024 * 1024) { alert('图片大小不能超过 10MB'); return; }
+      currentFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => { originalImage = img; setupCanvases(img); startProcessing(file); };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function setupCanvases(img) {
+      const maxWidth = 800, maxHeight = 600;
+      let w = img.width, h = img.height;
+      if (w > maxWidth || h > maxHeight) {
+        const ratio = Math.min(maxWidth / w, maxHeight / h);
+        w = Math.round(w * ratio); h = Math.round(h * ratio);
+      }
+      sourceCanvas.width = w; sourceCanvas.height = h;
+      resultCanvas.width = w; resultCanvas.height = h;
+      maskCanvas.width = w; maskCanvas.height = h;
+      sourceCtx.drawImage(img, 0, 0, w, h);
+      originalImageData = sourceCtx.getImageData(0, 0, w, h);
+    }
+
+    async function startProcessing(file) {
+      uploadArea.classList.add('hidden');
+      errorArea.classList.add('hidden');
+      progressArea.classList.remove('hidden');
+      progressTitle.textContent = '正在处理...';
+      progressText.textContent = 'AI 正在分析图片，移除背景';
+      progressFill.style.width = '10%';
+
+      try {
+        const blob = await fileToBlob(file);
+        progressFill.style.width = '40%';
+
+        const resultBlob = await imglyRemoveBackground(blob, {
+          model: 'medium',
+          output: { format: 'image/png', quality: 0.9 },
+          progress: (key, current, total) => {
+            const pct = Math.round((current / total) * 50) + 40;
+            progressFill.style.width = pct + '%';
+          }
+        });
+
+        progressFill.style.width = '100%';
+        progressTitle.textContent = '处理完成！';
+        progressText.textContent = '正在显示结果...';
+
+        await displayResult(resultBlob);
+
+        progressArea.classList.add('hidden');
+        workspace.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        progressArea.classList.add('hidden');
+        errorArea.classList.remove('hidden');
+        errorText.textContent = '错误信息：' + (err.message || '未知错误') + '。请检查网络连接，或尝试刷新页面重试。';
+      }
+    }
+
+    function fileToBlob(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(new Blob([new Uint8Array(reader.result)], { type: file.type }));
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    async function displayResult(blob) {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      await new Promise(r => { img.onload = r; img.src = url; });
+      resultCtx.drawImage(img, 0, 0, resultCanvas.width, resultCanvas.height);
+      const resultData = resultCtx.getImageData(0, 0, resultCanvas.width, resultCanvas.height);
+      const maskData = maskCtx.createImageData(resultCanvas.width, resultCanvas.height);
+      for (let i = 0; i < resultData.data.length; i += 4) {
+        const alpha = resultData.data[i + 3];
+        maskData.data[i] = alpha; maskData.data[i + 1] = alpha;
+        maskData.data[i + 2] = alpha; maskData.data[i + 3] = 255;
+      }
+      maskCtx.putImageData(maskData, 0, 0);
+      undoStack = []; pushUndo();
+      URL.revokeObjectURL(url);
+    }
+
+    function getCanvasCoords(e, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+      return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+
+    function startDraw(e) {
+      e.preventDefault();
+      isDrawing = true;
+      const coords = getCanvasCoords(e, maskCanvas);
+      lastX = coords.x; lastY = coords.y;
+      pushUndo(); draw(e);
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const coords = getCanvasCoords(e, maskCanvas);
+      const size = parseInt(brushSize.value);
+      const soft = parseInt(brushSoft.value) / 100;
+      maskCtx.save();
+      maskCtx.lineCap = 'round'; maskCtx.lineJoin = 'round'; maskCtx.lineWidth = size;
+      if (soft > 0) maskCtx.filter = `blur(${Math.round(size * soft * 0.3)}px)`;
+      maskCtx.globalCompositeOperation = 'source-over';
+      maskCtx.strokeStyle = currentTool === 'brush' ? '#FFFFFF' : '#000000';
+      maskCtx.beginPath(); maskCtx.moveTo(lastX, lastY); maskCtx.lineTo(coords.x, coords.y); maskCtx.stroke();
+      maskCtx.restore();
+      lastX = coords.x; lastY = coords.y;
+      applyMask();
+    }
+
+    function endDraw() { if (!isDrawing) return; isDrawing = false; }
+
+    function applyMask() {
+      const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+      const outData = resultCtx.createImageData(resultCanvas.width, resultCanvas.height);
+      for (let i = 0; i < maskData.data.length; i += 4) {
+        const alpha = maskData.data[i];
+        outData.data[i] = originalImageData.data[i];
+        outData.data[i + 1] = originalImageData.data[i + 1];
+        outData.data[i + 2] = originalImageData.data[i + 2];
+        outData.data[i + 3] = alpha;
+      }
+      resultCtx.putImageData(outData, 0, 0);
+    }
+
+    maskCanvas.addEventListener('mousedown', startDraw);
+    maskCanvas.addEventListener('mousemove', draw);
+    maskCanvas.addEventListener('mouseup', endDraw);
+    maskCanvas.addEventListener('mouseleave', endDraw);
+    maskCanvas.addEventListener('touchstart', startDraw, { passive: false });
+    maskCanvas.addEventListener('touchmove', draw, { passive: false });
+    maskCanvas.addEventListener('touchend', endDraw);
+
+    brushBtn.addEventListener('click', () => { currentTool = 'brush'; brushBtn.classList.add('active'); eraserBtn.classList.remove('active'); });
+    eraserBtn.addEventListener('click', () => { currentTool = 'eraser'; eraserBtn.classList.add('active'); brushBtn.classList.remove('active'); });
+    brushSize.addEventListener('input', () => brushSizeValue.textContent = brushSize.value + 'px');
+    brushSoft.addEventListener('input', () => brushSoftValue.textContent = brushSoft.value + '%');
+
+    function pushUndo() {
+      if (undoStack.length >= MAX_UNDO) undoStack.shift();
+      undoStack.push(maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height));
+      updateUndoBtn();
+    }
+
+    function undo() {
+      if (undoStack.length <= 1) return;
+      undoStack.pop();
+      maskCtx.putImageData(undoStack[undoStack.length - 1], 0, 0);
+      applyMask(); updateUndoBtn();
+    }
+
+    function updateUndoBtn() { undoBtn.disabled = undoStack.length <= 1; }
+    undoBtn.addEventListener('click', undo);
+    document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); } });
+
+    toggleMaskBtn.addEventListener('click', () => {
+      showMask = !showMask;
+      if (showMask) {
+        maskCanvas.classList.remove('hidden'); resultCanvas.classList.add('hidden');
+        maskIndicator.classList.remove('hidden'); toggleMaskBtn.classList.add('active');
+      } else {
+        maskCanvas.classList.add('hidden'); resultCanvas.classList.remove('hidden');
+        maskIndicator.classList.add('hidden'); toggleMaskBtn.classList.remove('active');
+      }
+    });
+
+    reuploadBtn.addEventListener('click', () => {
+      workspace.classList.add('hidden'); uploadArea.classList.remove('hidden');
+      fileInput.value = ''; undoStack = []; showMask = false;
+      maskCanvas.classList.add('hidden'); resultCanvas.classList.remove('hidden');
+      maskIndicator.classList.add('hidden'); toggleMaskBtn.classList.remove('active');
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      resultCanvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `removed-bg-${Date.now()}.png`; a.click();
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    });
+  </script>
+</body>
+</html>
